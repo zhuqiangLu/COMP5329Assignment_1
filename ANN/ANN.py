@@ -288,5 +288,5 @@ def onehot(label):
 X, label, Y = load_data()
 label = onehot(label)
 
-nn = MLP([128,3,10],[None,'tanh','softmax'])
-nn.fit(X.T, label.T, learning_rate=10, epochs=10000, printLoss= True)
+nn = MLP([128,64,10],[None,'relu','softmax'])
+nn.fit(X.T, label.T, learning_rate=0.05, epochs=10000, printLoss= True)
