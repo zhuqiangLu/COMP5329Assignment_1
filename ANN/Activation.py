@@ -32,8 +32,8 @@ class relu(object):
 class relu(object):
 
     def activate(self, z):
-        mask = x > 0
-        return x*mask
+        mask = z > 0
+        return z*mask
 
     def derivative(self, a):
         return np.int64(a>0)

@@ -8,6 +8,9 @@ class L2(object):
     def setLamda(self, lamda):
         self.lamda = lamda
 
+    def reset(self):
+        self.loss = 0
+
     def collectW(self, W):
         self.loss += np.sum(np.square(W))
 
@@ -22,6 +25,9 @@ class L1(object):
     def setLamda(self, lamda):
         self.lamda = lamda
 
+    def reset(self):
+        self.loss = 0
+
     def collectW(self, W):
         self.loss += np.sum(np.abs(W))
 
@@ -35,6 +41,9 @@ class dumbRegularizer(object):
         self.loss = 0
 
     def setLamda(self, lamda):
+        pass
+
+    def reset(self):
         pass
 
     def collectW(self, W):

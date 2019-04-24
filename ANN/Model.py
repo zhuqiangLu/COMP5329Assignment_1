@@ -5,24 +5,33 @@ from Initializer import Xavier, He, dumbInitializer
 from Cost import Cross_Entropy
 from Dropout import Dropout
 from Regularizer import L1, L2, dumbRegularizer
+from SGD import Batch
 import numpy as np
 import h5py
 
 
+
 class Model(object):
 
-    def __init__(self, training_data, training_label, cost = Cross_Entropy(), regularizer = dumbRegularizer() , lamda = 1):
-        self.X = training_data
-        self.Y = training_label
+    def __init__(self, training_data, training_label, learning_rate = 0.01, batch_size = 1, cost = Cross_Entropy(), regularizer = dumbRegularizer() , lamda = 1, drop = 0):
+
+        self.batch = Batch(training_data, training_label)
+
+        self.classes = training_label.shape[0]
+        self.lr = learning_rate
         self.dims = [training_data.shape[0]]
         self.layers = []
+        self.drop = drop
         self.cost = cost
+        self.batch_size = batch_size
         self.regularizer = regularizer
         self.regularizer.setLamda(lamda)
-        self.printloss = False
+        self.printInfo = False
         self.printAt = 1
 
-    def add_layer(self, n_out, ini = Xavier(), acti = tanh(), norm = standard(), drop = 0):
+    def add_layer(self, n_out, ini = Xavier(), acti = tanh(), norm = standard(), drop = None):
+        if(drop == None):
+            drop = self.drop
         n_in = self.dims[-1]
         layer = HiddenLayer(n_in, n_out, ini)
         layer.setActivation(acti)
@@ -33,7 +42,7 @@ class Model(object):
 
     def add_last_layer(self,ini = Xavier(), acti = softmax(), norm = standard()):
         n_in = self.dims[-1]
-        n_out = self.Y.shape[0]
+        n_out = self.classes
         layer = HiddenLayer(n_in, n_out, ini, last_layer = True)
         layer.setActivation(acti)
         layer.setBatchNormalizer(norm)
@@ -41,13 +50,14 @@ class Model(object):
         layer.setDropout(drop = 0)
         self.layers.append(layer)
 
-    def printLoss(self,printloss = False, printAt = 1):
-        self.printloss = printloss
+    def print_Info(self,printInfo = False, printAt = 1):
+        self.printInfo = printInfo
         self.printAt = printAt
 
     def forward(self, input):
+        self.regularizer.reset()#reset the W stored in regularizer
         for layer in self.layers:
-            input = layer.forward(input)
+            input = layer.forward(input, self.regularizer)#regularizer collect W during forward
         return input
 
     def backward(self, dz):
@@ -55,21 +65,20 @@ class Model(object):
         for layer in reversed(self.layers):
             da = layer.backward(da)
 
-    def update(self, lr):
+    def update(self):
         for layer in self.layers:
-            layer.update(lr, self.regularizer)
+            layer.update(self.lr, self.regularizer)
 
-    def fit(self, epoch = 500, lr = 0.01):
 
+    def fit(self, epoch = 100, lr = 0.01):
+
+        #first get batch
         for i in range(epoch):
-            input = self.X
-            y_hat = self.forward(input)
-            loss = self.cost.loss(self.Y, y_hat) + self.regularizer.loss
-            dz = self.cost.dz(self.Y, y_hat)
-            self.backward(dz)
-            self.update(lr)
-            if(self.printLoss and (i % self.printAt) == 0):
-                print(i, loss)
+            self.batch.fit(self, size = 30)
+            if(self.printInfo):
+                print("epoch {}, loss {}, accuracy on training data {}".format(i, self.batch.getLoss(), self.batch.getAccuracy()))
+
+
 
     def predict(self, x):
         x = np.array(x)
@@ -94,9 +103,10 @@ def onehot(label):
 if __name__ == "__main__":
     X, label, Y = load_data()
     label = onehot(label)
-    model = Model(X.T, label.T, regularizer = L2(), lamda = 0.9 )
-    model.add_layer(64)
-    model.add_layer(32)
+    model = Model(X.T, label.T, batch_size = 30, drop = 0.2)
+    model.add_layer(192, ini = He(), acti = relu())
+    model.add_layer(92, ini = He(), acti = relu())
+    model.add_layer(48, ini = He(), acti = relu())
     model.add_last_layer()
-    model.printLoss(printloss = True, printAt = 1)
-    model.fit(epoch = 10000, lr = 0.03)
+    model.print_Info(True, 1)
+    model.fit(epoch = 1000, lr = 0.005)
