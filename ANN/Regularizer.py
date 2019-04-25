@@ -1,12 +1,9 @@
 import numpy as np
 
 class L2(object):
-    def __init__(self):
-        self.lamda = 1
-        self.loss= 0
-
-    def setLamda(self, lamda):
+    def __init__(self, lamda = 1):
         self.lamda = lamda
+        self.loss= 0
 
     def reset(self):
         self.loss = 0
@@ -14,16 +11,13 @@ class L2(object):
     def collectW(self, W):
         self.loss += np.sum(np.square(W))
 
-    def update(self, grad_W, W, m):
+    def update_grad_W(self, grad_W, W, m):
         return grad_W + (self.lamda/(2*m))*W
 
 class L1(object):
-    def __init__(self):
-        self.lamda = 1
-        self.loss = 0
-
-    def setLamda(self, lamda):
+    def __init__(self, lamda = 1):
         self.lamda = lamda
+        self.loss = 0
 
     def reset(self):
         self.loss = 0
@@ -31,17 +25,14 @@ class L1(object):
     def collectW(self, W):
         self.loss += np.sum(np.abs(W))
 
-    def update(self, grad_W, W, m):
-        return grad_W + (self.lamda/(m))*(self.W/np.abs(W))
+    def update_grad_W(self, grad_W, W, m):
+        return grad_W + (self.lamda/(m))*(np.sign(W))
 
 
 class dumbRegularizer(object):
-    def __init__(self):
-        self.lamda = 1
+    def __init__(self, lamda = 1):
+        self.lamda = lamda
         self.loss = 0
-
-    def setLamda(self, lamda):
-        pass
 
     def reset(self):
         pass
@@ -50,5 +41,5 @@ class dumbRegularizer(object):
         pass
 
 
-    def update(self, grad_W, W, m):
+    def update_grad_W(self, grad_W, W, m):
         return grad_W

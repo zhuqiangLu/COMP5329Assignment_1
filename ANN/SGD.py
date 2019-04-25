@@ -36,6 +36,7 @@ class Batch(object):
         self.accuracy = 0
 
 
+
     def fit(self, model, size = None):
         #shuffle the batch before forward
         self.reset()
@@ -63,6 +64,7 @@ class Batch(object):
             self.accuracy += np.mean( np.equal(np.argmax(mini_Y, 0), np.argmax(mini_Y_hat, 0)))
             mini_dz = model.cost.dz(mini_Y, mini_Y_hat)
             model.backward(mini_dz)
+
             model.update()
 
         self.loss = self.loss/batch_num
