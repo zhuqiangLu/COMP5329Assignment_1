@@ -4,7 +4,7 @@ from Layer import HiddenLayer
 from Initializer import Xavier, He, dumbInitializer
 from Cost import Cross_Entropy
 from Dropout import Dropout
-from Momentum import Standard_Momentum, Nesterov
+from Optimizer import Momentum, Nesterov
 from Regularizer import L1, L2, dumbRegularizer
 from SGD import Batch
 
@@ -23,7 +23,7 @@ class Model(object):
                 learning_rate = 0.01,
                 batch_size = None,
                 drop = 0,
-                momentum = None,
+                optimizer = None,
                 cost = Cross_Entropy(),
                 regularizer = dumbRegularizer()):
 
@@ -36,7 +36,7 @@ class Model(object):
         self.dims = [training_data.shape[0]]
         self.layers = []
         self.drop = drop
-        self.momentum = momentum
+        self.optimizer = optimizer
         self.cost = cost
         self.batch_size = batch_size
         self.regularizer = regularizer
@@ -59,8 +59,8 @@ class Model(object):
         layer.setBatchNormalizer(norm)
         layer.setDropout(drop = drop)
 
-        if(self.momentum != None):
-            layer.setMomentum(self.momentum.clone())
+        if(self.optimizer != None):
+            layer.setOptimizer(self.optimizer.clone())
 
         self.dims.append(n_out)
         self.layers.append(layer)
@@ -78,8 +78,8 @@ class Model(object):
         #last layer dose not need Dropout
         layer.setDropout(drop = 0)
 
-        if(self.momentum != None):
-            layer.setMomentum(self.momentum.clone())
+        if(self.optimizer != None):
+            layer.setOptimizer(self.optimizer.clone())
 
         self.layers.append(layer)
 
@@ -194,13 +194,13 @@ if __name__ == "__main__":
     print(dev_X.shape, dev_Y.shape)
     (test_X, test_Y) = data[2]
 
-    model = Model(train_X, train_Y, batch_size = 30, drop = 0.1, regularizer = L2(0.01),momentum = Nesterov())
+    model = Model(train_X, train_Y, batch_size = 30, drop = 0.1, regularizer = L2(0.01), optimizer = Nesterov())
     model.print_Info(True, 1)
     model.set_dev(dev_X, dev_Y)
     model.add_layer(192, ini = He(), acti = relu())
     model.add_layer(92, ini = He(), acti = relu())
     model.add_layer(48, ini = He(), acti = relu())
     model.add_last_layer()
-    model.fit(epoch = 50, lr = 0.005)
-    model.plot()
+    model.fit(epoch = 50, lr = 0.0005)
+    model.plotLoss()
     model.test(test_X, test_Y)

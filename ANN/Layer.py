@@ -14,7 +14,7 @@ class HiddenLayer(object):
         self.Layer = Layer(n_in, n_out, ini)
         self.activation = Activation.tanh()
         self.BatchNormalizer = norm.standard()
-        self.momentum = None
+        self.optimizer = None
         self.m = None
         self.z = None
         self.a = None
@@ -33,9 +33,9 @@ class HiddenLayer(object):
         if( norm != None):
             self.BatchNormalizer = norm
 
-    def setMomentum(self, momentum):
-        if(momentum != None):
-            self.momentum = momentum
+    def setOptimizer(self, optimizer):
+        if(optimizer != None):
+            self.optimizer = optimizer
 
 
     def forward(self,input, training = True, regularizer = None):
@@ -76,9 +76,9 @@ class HiddenLayer(object):
     def update(self,lr=0.01, regularizer = None):
         self.Layer.grad_W = regularizer.update_grad_W(self.Layer.grad_W,self.Layer.W, self.m)
 
-        if(self.momentum != None):
-            self.Layer.W = self.momentum.update_W(lr, self.Layer.W, self.Layer.grad_W)
-            self.Layer.b = self.momentum.update_b(lr, self.Layer.b, self.Layer.grad_b)
+        if(self.optimizer != None):
+            self.Layer.W = self.optimizer.update_W(lr, self.Layer.W, self.Layer.grad_W)
+            self.Layer.b = self.optimizer.update_b(lr, self.Layer.b, self.Layer.grad_b)
         else:
             self.Layer.W -= lr * self.Layer.grad_W
             self.Layer.b -= lr * self.Layer.grad_b
