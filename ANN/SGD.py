@@ -43,6 +43,7 @@ class Batch(object):
 
         if(size == None):
             size = self.m
+
         self.shuffle()
         batch_num = self.m//size
 
@@ -53,15 +54,17 @@ class Batch(object):
             mini_X = self.getX()[:, start:end]
             mini_Y = self.getY()[:, start:end]
 
-            if(i == batch_num):
-                mini_X = self.getX()[:, start:]
-                mini_Y = self.getY()[:, start:]
+            # if(i == batch_num):
+            #     mini_X = self.getX()[:, start:]
+            #     mini_Y = self.getY()[:, start:]
 
 
             mini_Y_hat = model.forward(mini_X)
+
             self.loss += model.cost.loss(mini_Y, mini_Y_hat) + model.regularizer.loss
             #compute accuracy for this mini batch
             self.accuracy += np.mean( np.equal(np.argmax(mini_Y, 0), np.argmax(mini_Y_hat, 0)))
+            
             mini_dz = model.cost.dz(mini_Y, mini_Y_hat)
             model.backward(mini_dz)
 

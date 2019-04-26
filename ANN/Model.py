@@ -4,7 +4,7 @@ from Layer import HiddenLayer
 from Initializer import Xavier, He, dumbInitializer
 from Cost import Cross_Entropy
 from Dropout import Dropout
-from Optimizer import Momentum, Nesterov
+from Optimizer import Momentum, Nesterov, AdaGrad, AdaDelta, Adam
 from Regularizer import L1, L2, dumbRegularizer
 from SGD import Batch
 
@@ -115,14 +115,19 @@ class Model(object):
         #first get batch
         for i in range(epoch):
             self.batch.fit(self, size = self.batch_size)
+
+            dev_loss = 0
+            dev_accu = 0
             if(self.printInfo):
-                print("epoch {}, loss {}, accuracy on training data {}".format(i, self.batch.getLoss(), self.batch.getAccuracy()))
                 loss_train.append(self.batch.getLoss())
+
                 if(self.dev_X is not None and self.dev_Y is not None):
                     pred_dev = self.predict(self.dev_X)
                     dev_accu = np.mean( np.equal(np.argmax(self.dev_Y, 0), np.argmax(pred_dev, 0)))
-                    loss_dev.append(self.cost.loss(dev_Y, pred_dev))
-                    print("dev accuracy {}".format(dev_accu))
+                    dev_loss = self.cost.loss(dev_Y, pred_dev)
+                    loss_dev.append(dev_loss)
+                print("epoch {}, loss {}, accuracy on training data {}, loss on dev: {}, accuracy on dev: {}".format(i, self.batch.getLoss(), self.batch.getAccuracy(), dev_loss, dev_accu))
+
 
         self.plot.append(loss_train)
         self.plot.append(loss_dev)
@@ -194,13 +199,13 @@ if __name__ == "__main__":
     print(dev_X.shape, dev_Y.shape)
     (test_X, test_Y) = data[2]
 
-    model = Model(train_X, train_Y, batch_size = 30, drop = 0.1, regularizer = L2(0.01), optimizer = Nesterov())
+    model = Model(X, Y, batch_size = 32, drop = 0.3, optimizer = Adam())
     model.print_Info(True, 1)
-    model.set_dev(dev_X, dev_Y)
+    #model.set_dev(dev_X, dev_Y)
     model.add_layer(192, ini = He(), acti = relu())
-    model.add_layer(92, ini = He(), acti = relu())
+    model.add_layer(96, ini = He(), acti = relu())
     model.add_layer(48, ini = He(), acti = relu())
     model.add_last_layer()
-    model.fit(epoch = 50, lr = 0.0005)
+    model.fit(epoch = 55, lr = 0.0005)
     model.plotLoss()
-    model.test(test_X, test_Y)
+    #model.test(test_X, test_Y)
