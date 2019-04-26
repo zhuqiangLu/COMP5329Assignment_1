@@ -8,10 +8,9 @@ class Cross_Entropy(object):
 
 
     def loss(self, y, y_hat):
-        #m = y.shape[1]
+        m = y.shape[1]
 
-        #loss = (-1/m) * np.sum(np.sum((y * np.log(y_hat))))
+        loss = (-1/m) * np.sum(np.sum((y * np.log(y_hat))))
 
-        logs = -np.log(y_hat.T[range(len(y_hat.T)), np.argmax(y.T, axis=-1)])
-        loss = np.mean(logs)
+        
         return loss

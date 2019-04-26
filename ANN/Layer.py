@@ -12,12 +12,15 @@ class HiddenLayer(object):
     '''
     def __init__(self, n_in, n_out, ini, last_layer = False):
         self.Layer = Layer(n_in, n_out, ini)
+        self.n_in = n_in
+        self.n_out = n_out
         self.activation = Activation.tanh()
         self.BatchNormalizer = norm.standard()
         self.optimizer = None
         self.m = None
         self.z = None
         self.a = None
+        self.a_drop = None
         self.dropout = None
         self.input = None
         self.last_layer = last_layer
@@ -38,23 +41,30 @@ class HiddenLayer(object):
             self.optimizer = optimizer
 
 
+
+
     def forward(self,input, training = True, regularizer = None):
         self.m = input.shape[1]
+
+        assert(self.n_in == input.shape[0])
+
         #let regularizer collect W
         if(regularizer is not None):
+
             regularizer.collectW(self.layer.W)
 
-        #z1   ->     a1   ->  a1_drop  ->  z2
-        input = self.BatchNormalizer.normalize(input)
+        #-> input ->  norm_input -> z1 -> a1   ->  a1_drop ->
+
+        input = self.BatchNormalizer.forward(input)
         self.input = input
         self.z = self.Layer.forward(input)
         self.a = self.activation.activate(self.z)
-        self.a = self.dropout.drop_forward(self.a, training)
+        self.a_drop = self.dropout.drop_forward(self.a, training)
         return self.a
 
-    def backward(self, da, training = True):
+    def backward(self, da):
         #da means dj/da_drop here
-        #z1 <-  a1  <- a1_drop <- z2
+        # <- dinput <- dinput_norm <- dz1 <- da1  <- da1_drop <-
 
         #first get da_dz of the activation function of this layer
         #if this is the last layer, dz is given, but not da, therefore we skip calculating da_dz
@@ -62,19 +72,20 @@ class HiddenLayer(object):
 
         if(not self.last_layer):
 
-            da = self.dropout.drop_backward(da, training)
+            da = self.dropout.drop_backward(da)
             da_dz = self.activation.derivative(self.a)
 
-        dz = da * da_dz
+        dz= da * da_dz
+        #then backward the norm layer
         #then update dw and db using dz, calculate dj/da_drop,
-        dj_da = self.Layer.backward(dz)
+        din_norm = self.Layer.backward(dz)
 
-
+        din = self.BatchNormalizer.backward(din_norm)
         #then return dj_dz
-        return dj_da
+        return din
 
     def update(self,lr=0.01, regularizer = None):
-        self.Layer.grad_W = regularizer.update_grad_W(self.Layer.grad_W,self.Layer.W, self.m)
+        #self.Layer.grad_W = regularizer.update_grad_W(self.Layer.grad_W,self.Layer.W, self.m)
 
         if(self.optimizer != None):
             self.Layer.W = self.optimizer.update_W(lr, self.Layer.W, self.Layer.grad_W)
@@ -95,7 +106,7 @@ class Layer(object):
         Hidden unit activation is given by: tanh(dot(W,X) + b)
 
         :type n_in: int
-        :param n_in: dimensionality of input
+        :param n_in: dim of input
 
         :type n_out: int
         :param n_out: number of hidden units
@@ -122,7 +133,6 @@ class Layer(object):
 
         """
         self.input = input
-
         return np.dot(self.W,input) + self.b
 
 
@@ -137,8 +147,12 @@ class Layer(object):
         #first calculate the dw for this layer,
         #dw = dj/dz * dz/dw <- the input of this layer
         self.grad_W = np.dot(dz, self.input.T)/m
+
         #db is the sum of row of delta
-        self.grad_b = np.sum(dz, axis = 1, keepdims = True)/m
+
+        self.grad_b = np.sum(dz, axis = 1, keepdims = True)
+        self.grad_b = np.mean(self.grad_b, axis = 1, keepdims = True)
+
 
         #calculate da of this layers
         da = np.dot(self.W.T, dz)

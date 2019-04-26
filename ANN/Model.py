@@ -1,5 +1,5 @@
 from Activation import tanh, sigmoid, softmax, relu
-from BatchNormalizer import standard, rescale
+from BatchNormalizer import standard
 from Layer import HiddenLayer
 from Initializer import Xavier, He, dumbInitializer
 from Cost import Cross_Entropy
@@ -25,6 +25,7 @@ class Model(object):
                 drop = 0,
                 optimizer = None,
                 cost = Cross_Entropy(),
+                norm = standard(),
                 regularizer = dumbRegularizer()):
 
         self.batch = Batch(training_data, training_label)
@@ -37,6 +38,7 @@ class Model(object):
         self.layers = []
         self.drop = drop
         self.optimizer = optimizer
+        self.norm = norm
         self.cost = cost
         self.batch_size = batch_size
         self.regularizer = regularizer
@@ -48,7 +50,6 @@ class Model(object):
                 n_out,
                 ini = Xavier(),
                 acti = tanh(),
-                norm = standard(),
                 drop = None):
 
         if(drop == None):
@@ -56,7 +57,7 @@ class Model(object):
         n_in = self.dims[-1]
         layer = HiddenLayer(n_in, n_out, ini)
         layer.setActivation(acti)
-        layer.setBatchNormalizer(norm)
+        layer.setBatchNormalizer(self.norm.clone())
         layer.setDropout(drop = drop)
 
         if(self.optimizer != None):
@@ -65,16 +66,16 @@ class Model(object):
         self.dims.append(n_out)
         self.layers.append(layer)
 
+
     def add_last_layer(self,
-                    ini = Xavier(),
-                    acti = softmax(),
-                    norm = standard()):
+                    ini = He(),
+                    acti = softmax()):
 
         n_in = self.dims[-1]
         n_out = self.classes
         layer = HiddenLayer(n_in, n_out, ini, last_layer = True)
         layer.setActivation(acti)
-        layer.setBatchNormalizer(norm)
+        layer.setBatchNormalizer(self.norm.clone())
         #last layer dose not need Dropout
         layer.setDropout(drop = 0)
 
@@ -108,13 +109,17 @@ class Model(object):
             layer.update(self.lr, self.regularizer)
 
 
+
     def fit(self, epoch = 100, lr = 0.01):
 
         loss_train = []
         loss_dev = []
         #first get batch
         for i in range(epoch):
+
+
             self.batch.fit(self, size = self.batch_size)
+
 
             dev_loss = 0
             dev_accu = 0
@@ -194,14 +199,14 @@ if __name__ == "__main__":
 
     data = train_dev_test(X, Y, 0.8, 0.1, 0.1)
     (train_X, train_Y) = data[0]
-    print(train_X.shape, train_Y.shape)
     (dev_X, dev_Y) = data[1]
-    print(dev_X.shape, dev_Y.shape)
     (test_X, test_Y) = data[2]
+
 
     model = Model(X, Y, batch_size = 32, drop = 0.3, optimizer = Adam())
     model.print_Info(True, 1)
     #model.set_dev(dev_X, dev_Y)
+    #ini = He(), acti = relu()
     model.add_layer(192, ini = He(), acti = relu())
     model.add_layer(96, ini = He(), acti = relu())
     model.add_layer(48, ini = He(), acti = relu())

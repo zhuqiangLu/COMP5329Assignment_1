@@ -7,27 +7,16 @@ class tanh(object):
         return np.tanh(z)
 
     def derivative(self, a):
-        return 1.0 - a**2
+        return 1.0 - np.square(a)
 
 class sigmoid(object):
-
+    
     def activate(self, z):
-        return 1.0 / (1.0 + np.exp(-x))
+        return 1.0 / (1.0 + np.exp(-z))
 
     def derivative(self, a):
         return  a * (1 - a )
 
-class relu(object):
-
-    def activate(self, z):
-        # if x > 0 then relu(x) = x, else relu(x) = 0
-        mask = x > 0
-        return x*mask
-
-    def derivative(self, a):
-        # if x > 0, deriv(relu(x)) = dev(x) = 1,
-        # if x<= 0, deriv(relu(x)) = deriv(0) = 0
-        return np.int64(a>0)
 
 class relu(object):
 

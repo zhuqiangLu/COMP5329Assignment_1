@@ -64,7 +64,7 @@ class Batch(object):
             self.loss += model.cost.loss(mini_Y, mini_Y_hat) + model.regularizer.loss
             #compute accuracy for this mini batch
             self.accuracy += np.mean( np.equal(np.argmax(mini_Y, 0), np.argmax(mini_Y_hat, 0)))
-            
+
             mini_dz = model.cost.dz(mini_Y, mini_Y_hat)
             model.backward(mini_dz)
 

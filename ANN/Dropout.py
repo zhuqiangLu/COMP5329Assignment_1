@@ -22,8 +22,8 @@ class Dropout(object):
 
         return a
 
-    def drop_backward(self, da, training):
-        if(self.keep == 1 or not training):
+    def drop_backward(self, da):
+        if(self.keep == 1):
             return da
         da = (da * self.mask)/self.keep
         return da
