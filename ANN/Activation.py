@@ -10,7 +10,7 @@ class tanh(object):
         return 1.0 - np.square(a)
 
 class sigmoid(object):
-    
+
     def activate(self, z):
         return 1.0 / (1.0 + np.exp(-z))
 

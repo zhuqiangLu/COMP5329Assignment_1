@@ -20,25 +20,30 @@ class Model(object):
     def __init__(self,
                 training_data,
                 training_label,
-                learning_rate = 0.01,
+                learning_rate = 0.0005,
                 batch_size = None,
                 drop = 0,
                 optimizer = None,
                 cost = Cross_Entropy(),
                 norm = standard(),
-                regularizer = dumbRegularizer()):
+                regularizer = None):
 
         self.batch = Batch(training_data, training_label)
         self.batch_size = batch_size
+        self.m = training_data.shape[1]
         self.dev_X = None
         self.dev_Y = None
         self.classes = training_label.shape[0]
-        self.lr = learning_rate
         self.dims = [training_data.shape[0]]
+        self.lr = learning_rate
         self.layers = []
         self.drop = drop
         self.optimizer = optimizer
         self.norm = norm
+
+        if(self.optimizer is not None and self.norm is not None):
+            self.norm.set_optimizer(self.optimizer.clone())
+
         self.cost = cost
         self.batch_size = batch_size
         self.regularizer = regularizer
@@ -57,7 +62,8 @@ class Model(object):
         n_in = self.dims[-1]
         layer = HiddenLayer(n_in, n_out, ini)
         layer.setActivation(acti)
-        layer.setBatchNormalizer(self.norm.clone())
+        if(self.norm is not None):
+            layer.setBatchNormalizer(self.norm.clone())
         layer.setDropout(drop = drop)
 
         if(self.optimizer != None):
@@ -75,7 +81,9 @@ class Model(object):
         n_out = self.classes
         layer = HiddenLayer(n_in, n_out, ini, last_layer = True)
         layer.setActivation(acti)
-        layer.setBatchNormalizer(self.norm.clone())
+        if(self.norm is not None):
+            layer.setBatchNormalizer(self.norm.clone())
+
         #last layer dose not need Dropout
         layer.setDropout(drop = 0)
 
@@ -88,15 +96,27 @@ class Model(object):
         self.dev_X = dev_X
         self.dev_Y = dev_Y
 
+    def get_reg_loss(self):
+        if(self.regularizer is None):
+            return 0
+        else:
+            return self.regularizer.get_loss(self.m)
+
+    def reset_regularizer(self):
+        if(self.regularizer is not None):
+            self.regularizer.reset()
 
     def print_Info(self,printInfo = False, printAt = 1):
         self.printInfo = printInfo
         self.printAt = printAt
 
-    def forward(self, input):
-        self.regularizer.reset()#reset the W stored in regularizer
+    def forward(self, input, training = True):
+
+        #reset regularizer before each forward pass
+        self.reset_regularizer()
         for layer in self.layers:
-            input = layer.forward(input, self.regularizer)#regularizer collect W during forward
+            input = layer.forward(input, training = training, regularizer = self.regularizer)#regularizer collect W during forward
+
         return input
 
     def backward(self, dz):
@@ -110,13 +130,15 @@ class Model(object):
 
 
 
-    def fit(self, epoch = 100, lr = 0.01):
+    def fit(self, epoch = 100, learning_rate = None):
+        #update learning rate if it is given in fit
+        if(learning_rate is not None):
+            self.lr = learning_rate
 
         loss_train = []
         loss_dev = []
         #first get batch
         for i in range(epoch):
-
 
             self.batch.fit(self, size = self.batch_size)
 
@@ -140,9 +162,9 @@ class Model(object):
 
 
 
-    def plotLoss(self):
-        plt.plot(np.arange(50), self.plot[0], label = "train_loss")
-        plt.plot(np.arange(50), self.plot[1], label = "dev_loss")
+    def plotLoss(self, x):
+        plt.plot(np.arange(x), self.plot[0], label = "train_loss")
+        plt.plot(np.arange(x), self.plot[1], label = "dev_loss")
 
         plt.xlabel("epoch")
         plt.ylabel("loss")
@@ -186,6 +208,11 @@ def train_dev_test(X, Y, train_rate, dev_rate, test_rate):
     return [(X[:,:train], Y[:,:train]),(X[:,train:dev], Y[:, train:dev]),(X[:, dev:], Y[:, dev:])]
 
 
+def standardize_data(X):
+    mean = np.mean(X, axis = 1, keepdims = True)
+    var = np.var(X, axis = 1, keepdims = True)
+    return (X-mean)/np.sqrt(var + 1e-8)
+
 def onehot(label):
     return np.eye(np.max(label)+1)[label]
 
@@ -193,9 +220,9 @@ if __name__ == "__main__":
     X, label, toPredict= load_data() # X is(m, n_in)
     label = onehot(label)
 
-    X = X.T
+    X = standardize_data(X.T)
     Y = label.T
-    toPredict = toPredict.T
+    toPredict = standardize_data(toPredict.T)
 
     data = train_dev_test(X, Y, 0.8, 0.1, 0.1)
     (train_X, train_Y) = data[0]
@@ -203,14 +230,14 @@ if __name__ == "__main__":
     (test_X, test_Y) = data[2]
 
 
-    model = Model(X, Y, batch_size = 32, drop = 0.3, optimizer = Adam())
+    model = Model(train_X, train_Y, batch_size = 32, drop = 0.3, optimizer = Adam())
     model.print_Info(True, 1)
-    #model.set_dev(dev_X, dev_Y)
+    model.set_dev(dev_X, dev_Y)
     #ini = He(), acti = relu()
     model.add_layer(192, ini = He(), acti = relu())
     model.add_layer(96, ini = He(), acti = relu())
     model.add_layer(48, ini = He(), acti = relu())
     model.add_last_layer()
-    model.fit(epoch = 55, lr = 0.0005)
-    model.plotLoss()
-    #model.test(test_X, test_Y)
+    model.fit(epoch = 50, learning_rate = 0.0005)
+    model.plotLoss(50)
+    model.test(test_X, test_Y)

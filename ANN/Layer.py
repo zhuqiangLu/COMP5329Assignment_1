@@ -19,6 +19,7 @@ class HiddenLayer(object):
         self.optimizer = None
         self.m = None
         self.z = None
+        self.z_norm = None
         self.a = None
         self.a_drop = None
         self.dropout = None
@@ -50,42 +51,44 @@ class HiddenLayer(object):
 
         #let regularizer collect W
         if(regularizer is not None):
+            regularizer.collectW(self.Layer.W)
 
-            regularizer.collectW(self.layer.W)
+        #-> input ->  z1 -> norm_z1 -> a1   ->  a1_drop ->
 
-        #-> input ->  norm_input -> z1 -> a1   ->  a1_drop ->
 
-        input = self.BatchNormalizer.forward(input)
         self.input = input
+
         self.z = self.Layer.forward(input)
-        self.a = self.activation.activate(self.z)
+        self.z_norm = self.BatchNormalizer.forward(self.z, training = training)
+        self.a = self.activation.activate(self.z_norm)
         self.a_drop = self.dropout.drop_forward(self.a, training)
+
         return self.a
 
-    def backward(self, da):
+    def backward(self, da_drop):
         #da means dj/da_drop here
-        # <- dinput <- dinput_norm <- dz1 <- da1  <- da1_drop <-
+        # <- dinput <- dz1 <- dz1_norm <- da1  <- da1_drop <-
 
         #first get da_dz of the activation function of this layer
         #if this is the last layer, dz is given, but not da, therefore we skip calculating da_dz
-        da_dz = np.array(1)
-
+        dz_norm = None
         if(not self.last_layer):
-
-            da = self.dropout.drop_backward(da)
+            da = self.dropout.drop_backward(da_drop)
             da_dz = self.activation.derivative(self.a)
+            dz_norm = da * da_dz
+        else:
+            dz_norm = da_drop
 
-        dz= da * da_dz
         #then backward the norm layer
-        #then update dw and db using dz, calculate dj/da_drop,
-        din_norm = self.Layer.backward(dz)
-
-        din = self.BatchNormalizer.backward(din_norm)
+        dz = self.BatchNormalizer.backward(dz_norm)
+        #then update dw and db using dz, calculate dj/da_drop
+        din = self.Layer.backward(dz)
         #then return dj_dz
         return din
 
-    def update(self,lr=0.01, regularizer = None):
-        #self.Layer.grad_W = regularizer.update_grad_W(self.Layer.grad_W,self.Layer.W, self.m)
+    def update(self,lr, regularizer = None):
+        if(regularizer != None):
+            self.Layer.grad_W = regularizer.update_grad_W(self.Layer.grad_W,self.Layer.W, self.m)
 
         if(self.optimizer != None):
             self.Layer.W = self.optimizer.update_W(lr, self.Layer.W, self.Layer.grad_W)
@@ -93,6 +96,10 @@ class HiddenLayer(object):
         else:
             self.Layer.W -= lr * self.Layer.grad_W
             self.Layer.b -= lr * self.Layer.grad_b
+
+        #update normalizer as well
+        if(self.BatchNormalizer is not None):
+            self.BatchNormalizer.update(lr)
 
 
 

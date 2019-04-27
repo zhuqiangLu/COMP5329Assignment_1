@@ -11,6 +11,9 @@ class L2(object):
     def collectW(self, W):
         self.loss += np.sum(np.square(W))
 
+    def get_loss(self, m):
+        return self.loss * self.lamda/m
+
     def update_grad_W(self, grad_W, W, m):
         return grad_W + (self.lamda/(2*m))*W
 
@@ -24,6 +27,9 @@ class L1(object):
 
     def collectW(self, W):
         self.loss += np.sum(np.abs(W))
+
+    def get_loss(self, m):
+        return self.loss * self.lamda/m
 
     def update_grad_W(self, grad_W, W, m):
         return grad_W + (self.lamda/(m))*(np.sign(W))

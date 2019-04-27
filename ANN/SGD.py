@@ -17,6 +17,7 @@ class Batch(object):
         #must reshape map first
         map_t = self.map.T
         np.random.shuffle(map_t)
+        print(np.max(map_t.T - self.map))
         self.map = map_t.T
 
     def getX(self):
@@ -46,6 +47,7 @@ class Batch(object):
 
         self.shuffle()
         batch_num = self.m//size
+        print(batch_num)
 
         for i in range(batch_num):
             start = i * size
@@ -59,9 +61,9 @@ class Batch(object):
             #     mini_Y = self.getY()[:, start:]
 
 
-            mini_Y_hat = model.forward(mini_X)
+            mini_Y_hat = model.forward(mini_X, training = True)
 
-            self.loss += model.cost.loss(mini_Y, mini_Y_hat) + model.regularizer.loss
+            self.loss += model.cost.loss(mini_Y, mini_Y_hat) + model.get_reg_loss()
             #compute accuracy for this mini batch
             self.accuracy += np.mean( np.equal(np.argmax(mini_Y, 0), np.argmax(mini_Y_hat, 0)))
 

@@ -17,7 +17,8 @@ class Momentum(object):
 
     def update_b(self, lr, b, grad_b):
         self.v_b =(self.gama * self.v_b) + (lr * grad_b)
-        return b - self.v_b
+
+        return  b - self.v_b
 
 
 
@@ -140,33 +141,45 @@ class RMSProp(object):
 
 
 class Adam(object):
-    def __init__(self, beta1 = 0.9, beta2 = 0.999):
+    def __init__(self, beta1 = 0.9, beta2 = 0.999 ,bias_correction = False):
         self.epsilon = 1e-8
+
         self.beta1 = beta1
         self.beta2 = beta2
         self.vW = 0
         self.mW = 0
+
         self.vb = 0
         self.mb = 0
-        self.t = 1
+        self.bias_correction = bias_correction
+        if(self.bias_correction):
+            self.t = 0
+        else:
+            self.t = 1
 
     def clone(self):
-
-        return Adam(self.beta1, self.beta2)
+        return Adam(beta1 = self.beta1, beta2 = self.beta2, bias_correction = self.bias_correction)
 
     def update_W(self, lr, W, grad_W):
 
-        self.t += 1
+        if(self.bias_correction):
+            self.t+=1
         self.mW = self.beta1 * self.mW + (1 - self.beta1) * grad_W
         self.vW = self.beta2 * self.vW + (1 - self.beta2) * np.square(grad_W)
-        m_hat = self.mW/(1. - (self.beta1 ** self.t))
-        v_hat = self.vW/(1. - (self.beta2 ** self.t))
+        m_hat = self.mW
+        v_hat = self.vW
+        if(self.bias_correction):
+            m_hat = self.mW/(1. - (self.beta1 ** self.t))
+            v_hat = self.vW/(1. - (self.beta2 ** self.t))
         return W - (lr* m_hat)/np.sqrt(v_hat + self.epsilon)
 
     def update_b(self, lr, b, grad_b):
         self.vb = self.beta2 * self.vb + (1 - self.beta2) * np.square(grad_b)
         self.mb = self.beta1 * self.mb + (1 - self.beta1) * grad_b
-        m_hat = self.mb/(1. - (self.beta1 ** self.t))
-        v_hat = self.vb/(1. - (self.beta2 ** self.t))
+        m_hat = self.mb
+        v_hat = self.vb
+        if(self.bias_correction):
+            m_hat = self.mb/(1. - (self.beta1 ** self.t))
+            v_hat = self.vb/(1. - (self.beta2 ** self.t))
 
         return b - (lr* m_hat)/np.sqrt(v_hat + self.epsilon)
