@@ -1,7 +1,9 @@
 import numpy as np
-from Optimizer import Adam
+from Optimizer import *
 class standard(object):
     def __init__(self, avg_decay = 0.9, optimizer = None):
+        self.m = None
+
         self.gama = None
         self.beta = None
         self.dgama = 0
@@ -27,6 +29,7 @@ class standard(object):
         self.beta = np.zeros((din, 1))
 
     def clone(self):
+
         opt = None
         if(self.optimizer is not None):
             opt = self.optimizer.clone()
@@ -48,12 +51,11 @@ class standard(object):
         m = input.shape[1]
         self.input = input
         #calculate the mean of each features
-        #self.mu = np.sum(input, axis = 1, keepdims = True)/m
         self.mean = np.mean(input, axis = 1, keepdims = True)
 
         #variance
         self.var = np.var(self.input, axis = 1, keepdims = True)
-        #self.var = np.sum( np.square(input - self.mu), axis = 1, keepdims = True)/m
+
         #standard deviation
         self.std = np.sqrt(self.var + epsilon)
         #normalize
@@ -61,7 +63,6 @@ class standard(object):
 
         self.avg_mean = (self.avg_decay) * self.avg_mean + (1 - self.avg_decay) * (self.mean)
         self.avg_var = (self.avg_decay) * self.avg_var + (1 - self.avg_decay) * (self.var)
-
 
         #scale and shift
         return (self.gama * self.input_hat) + self.beta
@@ -94,5 +95,7 @@ class standard(object):
             self.gama -= lr * self.dgama
             self.beta -= lr * self.dbeta
         else:
+            # self.gama = self.optimizer.update_W(lr, self.gama, self.dgama)
+            # self.beta = self.optimizer.update_b(lr, self.beta, self.dbeta)
             self.gama = self.optimizer.update_W(lr, self.gama, self.dgama)
             self.beta = self.optimizer.update_b(lr, self.beta, self.dbeta)

@@ -31,10 +31,8 @@ class softmax(object):
 
     def activate(self, z):
         #first calculate the base(the sum of exp(x_i)) for each row
-        #x is dxn
-        base = np.sum(np.exp(z), axis = 0, keepdims = True)
-        #use element wise devision to get softmax outcome
-        return np.exp(z)/base
+        
+        return np.exp(z)/np.sum(np.exp(z), axis = 0, keepdims = True)
 
     def derivative(self,a):
         #not recommanded to use

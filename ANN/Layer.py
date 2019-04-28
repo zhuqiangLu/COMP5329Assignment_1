@@ -15,7 +15,7 @@ class HiddenLayer(object):
         self.n_in = n_in
         self.n_out = n_out
         self.activation = Activation.tanh()
-        self.BatchNormalizer = norm.standard()
+        self.BatchNormalizer = None
         self.optimizer = None
         self.m = None
         self.z = None
@@ -50,7 +50,7 @@ class HiddenLayer(object):
         assert(self.n_in == input.shape[0])
 
         #let regularizer collect W
-        if(regularizer is not None):
+        if(regularizer is not None and training):
             regularizer.collectW(self.Layer.W)
 
         #-> input ->  z1 -> norm_z1 -> a1   ->  a1_drop ->
@@ -58,8 +58,20 @@ class HiddenLayer(object):
 
         self.input = input
 
+
+        if(self.optimizer.__class__.__name__ == "Nesterov"):
+            last_v_W = self.optimizer.get_last_v_W()
+            last_v_b = self.optimizer.get_last_v_b()
+            gama = self.optimizer.gama
+            self.Layer.W -= gama*last_v_W
+            self.Layer.b -= gama*last_v_b
+
         self.z = self.Layer.forward(input)
-        self.z_norm = self.BatchNormalizer.forward(self.z, training = training)
+        if(self.BatchNormalizer is not None):
+            self.z_norm = self.BatchNormalizer.forward(self.z, training = training)
+        else:
+            self.z_norm = self.z
+    
         self.a = self.activation.activate(self.z_norm)
         self.a_drop = self.dropout.drop_forward(self.a, training)
 
@@ -79,23 +91,31 @@ class HiddenLayer(object):
         else:
             dz_norm = da_drop
 
+        dz = 0
         #then backward the norm layer
-        dz = self.BatchNormalizer.backward(dz_norm)
+        if(self.BatchNormalizer is not None):
+            dz = self.BatchNormalizer.backward(dz_norm)
+        else:
+            dz = dz_norm
+
         #then update dw and db using dz, calculate dj/da_drop
         din = self.Layer.backward(dz)
         #then return dj_dz
         return din
 
     def update(self,lr, regularizer = None):
+
         if(regularizer != None):
             self.Layer.grad_W = regularizer.update_grad_W(self.Layer.grad_W,self.Layer.W, self.m)
 
         if(self.optimizer != None):
+            #self.Layer.W = self.optimizer.update_W(lr, self.Layer.W, self.Layer.grad_W)
+            #self.Layer.b = self.optimizer.update_b(lr, self.Layer.b, self.Layer.grad_b)
             self.Layer.W = self.optimizer.update_W(lr, self.Layer.W, self.Layer.grad_W)
             self.Layer.b = self.optimizer.update_b(lr, self.Layer.b, self.Layer.grad_b)
         else:
-            self.Layer.W -= lr * self.Layer.grad_W
-            self.Layer.b -= lr * self.Layer.grad_b
+            self.Layer.W = self.Layer.W - lr * self.Layer.grad_W
+            self.Layer.b = self.Layer.b - lr * self.Layer.grad_b
 
         #update normalizer as well
         if(self.BatchNormalizer is not None):
@@ -127,6 +147,7 @@ class Layer(object):
         #init W and b using the given initializer
         self.W = ini.get_W(n_in, n_out)
         self.b = ini.get_b(n_out)
+
         #create instance variables for grad_w and grad_b
         self.grad_W = np.zeros(self.W.shape)
         self.grad_b = np.zeros(self.b.shape)
@@ -157,8 +178,7 @@ class Layer(object):
 
         #db is the sum of row of delta
 
-        self.grad_b = np.sum(dz, axis = 1, keepdims = True)
-        self.grad_b = np.mean(self.grad_b, axis = 1, keepdims = True)
+        self.grad_b = np.sum(dz, axis = 1, keepdims = True)/m
 
 
         #calculate da of this layers

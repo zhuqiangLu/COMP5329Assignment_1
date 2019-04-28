@@ -9,21 +9,21 @@ class Dropout(object):
 
         self.drop = drop
         self.keep = (1-drop)
+        print(self.drop)
         self.mask = None
 
 
     def drop_forward(self, a, training):
-        if(self.keep == 1 or not training):
-            return a
         #get the Bernoulli matrix
         ## when I google how to get bernoulli in numpy, it says I can use bonimial
         #then scale it by the keep rate
-        self.mask = np.random.binomial(1,self.keep, a.shape)/self.keep
-
-        return a * self.mask
+        self.mask = np.random.binomial(1 ,self.keep, a.shape)/self.keep
+        if(training):
+            return a * self.mask
+        else:
+            return a
 
 
     def drop_backward(self, da):
-        if(self.keep == 1):
-            return da
-        return (da * self.mask) / self.keep
+
+        return (da * self.mask)

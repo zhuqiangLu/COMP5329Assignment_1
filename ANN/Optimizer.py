@@ -3,6 +3,7 @@ import numpy as np
 
 class Momentum(object):
     def __init__(self, momentum_term = 0.9):
+
         self.gama = 0.9
         self.v_W = 0
         self.v_b = 0
@@ -12,33 +13,49 @@ class Momentum(object):
         return Momentum(self.gama)
 
     def update_W(self, lr, W, grad_W):
-        self.v_W = (self.gama * self.v_W) + (lr * grad_W)
-        return W - self.v_W
+        lr = 0.0005
+        self.v_W = (self.gama * self.v_W) - (lr * grad_W)
+        return W + self.v_W
 
     def update_b(self, lr, b, grad_b):
-        self.v_b =(self.gama * self.v_b) + (lr * grad_b)
+        lr = 0.0005
+        self.v_b =(self.gama * self.v_b) - (lr * grad_b)
 
-        return  b - self.v_b
+        return b + self.v_b
 
 
 
 
 class Nesterov(object):
     def __init__(self, momentum_term = 0.9):
+
         self.gama = 0.9
         self.v_W = 0
         self.v_b = 0
         self.t = 0
 
+        self.v_W_last = 0
+        self.v_b_last = 0
+
+
     def clone(self):
-        return Momentum(self.gama)
+        return Nesterov(self.gama)
+
+    def get_last_v_W(self):
+        return self.v_W_last
+
+    def get_last_v_b(self):
+        return self.v_b_last
+
 
     def update_W(self, lr, W, grad_W):
-        self.v_W = (self.gama * self.v_W) + (lr * grad_W) * (W - (self.gama * self.v_W))
+        self.v_W_last = np.copy(self.v_W)
+        self.v_W = (self.gama * self.v_W) + (lr * grad_W)
         return W - self.v_W
 
     def update_b(self, lr, b, grad_b):
-        self.v_b = (self.gama * self.v_b) + (lr * grad_b) * (b - (self.gama * self.v_b))
+        self.v_b_last = np.copy(self.v_b)
+        self.v_b =(self.gama * self.v_b) + (lr * grad_b)
         return b - self.v_b
 
 
@@ -46,6 +63,7 @@ class Nesterov(object):
 class AdaGrad(object):
 
     def __init__(self):
+        
         self.epsilon = 1e-6
         self.G_W = 0
         self.G_b = 0
@@ -142,6 +160,7 @@ class RMSProp(object):
 
 class Adam(object):
     def __init__(self, beta1 = 0.9, beta2 = 0.999 ,bias_correction = False):
+
         self.epsilon = 1e-8
 
         self.beta1 = beta1
@@ -171,6 +190,7 @@ class Adam(object):
         if(self.bias_correction):
             m_hat = self.mW/(1. - (self.beta1 ** self.t))
             v_hat = self.vW/(1. - (self.beta2 ** self.t))
+
         return W - (lr* m_hat)/np.sqrt(v_hat + self.epsilon)
 
     def update_b(self, lr, b, grad_b):

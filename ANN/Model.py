@@ -24,11 +24,13 @@ class Model(object):
                 batch_size = None,
                 drop = 0,
                 optimizer = None,
+                norm = None,
                 cost = Cross_Entropy(),
-                norm = standard(),
                 regularizer = None):
 
         self.batch = Batch(training_data, training_label)
+        self.X = training_data
+        self.Y = training_label
         self.batch_size = batch_size
         self.m = training_data.shape[1]
         self.dev_X = None
@@ -45,7 +47,6 @@ class Model(object):
             self.norm.set_optimizer(self.optimizer.clone())
 
         self.cost = cost
-        self.batch_size = batch_size
         self.regularizer = regularizer
         self.printInfo = False
         self.printAt = 1
@@ -62,8 +63,10 @@ class Model(object):
         n_in = self.dims[-1]
         layer = HiddenLayer(n_in, n_out, ini)
         layer.setActivation(acti)
+
         if(self.norm is not None):
             layer.setBatchNormalizer(self.norm.clone())
+
         layer.setDropout(drop = drop)
 
         if(self.optimizer != None):
@@ -137,11 +140,11 @@ class Model(object):
 
         loss_train = []
         loss_dev = []
+        total_loss = []
         #first get batch
         for i in range(epoch):
 
             self.batch.fit(self, size = self.batch_size)
-
 
             dev_loss = 0
             dev_accu = 0
@@ -153,12 +156,18 @@ class Model(object):
                     dev_accu = np.mean( np.equal(np.argmax(self.dev_Y, 0), np.argmax(pred_dev, 0)))
                     dev_loss = self.cost.loss(dev_Y, pred_dev)
                     loss_dev.append(dev_loss)
-                print("epoch {}, loss {}, accuracy on training data {}, loss on dev: {}, accuracy on dev: {}".format(i, self.batch.getLoss(), self.batch.getAccuracy(), dev_loss, dev_accu))
+
+                total_loss.extend(self.batch.getLoss())
+                mean_loss_train = np.mean(self.batch.getLoss())
+                mean_accu_train = np.mean(self.batch.getAccuracy())
+                print("epoch {}, loss {}, accuracy on training data {}, loss on dev: {}, accuracy on dev: {}".format(i, mean_loss_train, mean_accu_train, dev_loss, dev_accu))
+                loss_train.append(mean_loss_train)
+                loss_dev.append(loss_dev)
 
 
-        self.plot.append(loss_train)
+        self.plot.append(mean_loss_train)
         self.plot.append(loss_dev)
-
+        return total_loss
 
 
 
@@ -230,14 +239,15 @@ if __name__ == "__main__":
     (test_X, test_Y) = data[2]
 
 
-    model = Model(train_X, train_Y, batch_size = 32, drop = 0.3, optimizer = Adam())
+    model = Model(train_X, train_Y, batch_size = 32,drop = 0.3, norm = standard(), optimizer = Adam())
     model.print_Info(True, 1)
-    model.set_dev(dev_X, dev_Y)
+#    model.set_dev(dev_X, dev_Y)
     #ini = He(), acti = relu()
     model.add_layer(192, ini = He(), acti = relu())
     model.add_layer(96, ini = He(), acti = relu())
     model.add_layer(48, ini = He(), acti = relu())
     model.add_last_layer()
-    model.fit(epoch = 50, learning_rate = 0.0005)
+
+    loss = model.fit(epoch = 50, learning_rate = 0.0005)
     model.plotLoss(50)
     model.test(test_X, test_Y)
