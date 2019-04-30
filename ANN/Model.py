@@ -1,11 +1,11 @@
 from Activation import tanh, sigmoid, softmax, relu
 from BatchNormalizer import standard
 from Layer import HiddenLayer
-from Initializer import Xavier, He, dumbInitializer
+from Initializer import Xavier, He
 from Cost import Cross_Entropy
 from Dropout import Dropout
 from Optimizer import Momentum, Nesterov, AdaGrad, AdaDelta, Adam
-from Regularizer import L1, L2, dumbRegularizer
+from Regularizer import L1, L2
 from SGD import Batch
 
 
@@ -20,7 +20,7 @@ class Model(object):
     def __init__(self,
                 training_data,
                 training_label,
-                learning_rate = 0.0005,
+                learning_rate = 0.0001,
                 batch_size = None,
                 drop = 0,
                 optimizer = None,
@@ -55,11 +55,10 @@ class Model(object):
     def add_layer(self,
                 n_out,
                 ini = Xavier(),
-                acti = tanh(),
+                acti = relu(),
                 drop = None):
 
-        if(drop == None):
-            drop = self.drop
+        drop = self.drop
         n_in = self.dims[-1]
         layer = HiddenLayer(n_in, n_out, ini)
         layer.setActivation(acti)
@@ -77,19 +76,16 @@ class Model(object):
 
 
     def add_last_layer(self,
-                    ini = He(),
+                    ini = Xavier(),
                     acti = softmax()):
 
         n_in = self.dims[-1]
         n_out = self.classes
         layer = HiddenLayer(n_in, n_out, ini, last_layer = True)
-        layer.setActivation(acti)
-        if(self.norm is not None):
-            layer.setBatchNormalizer(self.norm.clone())
+        layer.setActivation(softmax())
 
         #last layer dose not need Dropout
         layer.setDropout(drop = 0)
-
         if(self.optimizer != None):
             layer.setOptimizer(self.optimizer.clone())
 
@@ -125,11 +121,11 @@ class Model(object):
     def backward(self, dz):
         da = dz
         for layer in reversed(self.layers):
-            da = layer.backward(da)
+            da = layer.backward(da, self.regularizer)
 
     def update(self):
         for layer in self.layers:
-            layer.update(self.lr, self.regularizer)
+            layer.update(self.lr)
 
 
 
@@ -140,7 +136,6 @@ class Model(object):
 
         loss_train = []
         loss_dev = []
-        total_loss = []
         #first get batch
         for i in range(epoch):
 
@@ -149,39 +144,26 @@ class Model(object):
             dev_loss = 0
             dev_accu = 0
             if(self.printInfo):
-                loss_train.append(self.batch.getLoss())
 
                 if(self.dev_X is not None and self.dev_Y is not None):
+                    dev_X_copy = np.copy(dev_X)
                     pred_dev = self.predict(self.dev_X)
                     dev_accu = np.mean( np.equal(np.argmax(self.dev_Y, 0), np.argmax(pred_dev, 0)))
                     dev_loss = self.cost.loss(dev_Y, pred_dev)
                     loss_dev.append(dev_loss)
 
-                total_loss.extend(self.batch.getLoss())
                 mean_loss_train = np.mean(self.batch.getLoss())
-                mean_accu_train = np.mean(self.batch.getAccuracy())
-                print("epoch {}, loss {}, accuracy on training data {}, loss on dev: {}, accuracy on dev: {}".format(i, mean_loss_train, mean_accu_train, dev_loss, dev_accu))
                 loss_train.append(mean_loss_train)
-                loss_dev.append(loss_dev)
 
 
-        self.plot.append(mean_loss_train)
-        self.plot.append(loss_dev)
-        return total_loss
+                mean_accu_train = np.mean(self.batch.getAccuracy())
+                print("epoch {}, train loss {}, train accur {}, val loss: {}, val accu: {}".format(i, mean_loss_train, mean_accu_train, dev_loss, dev_accu))
+
+            self.plot.append(loss_train)
+
+            self.plot.append(loss_dev)
 
 
-
-    def plotLoss(self, x):
-        plt.plot(np.arange(x), self.plot[0], label = "train_loss")
-        plt.plot(np.arange(x), self.plot[1], label = "dev_loss")
-
-        plt.xlabel("epoch")
-        plt.ylabel("loss")
-
-        plt.legend()
-        plt.title("loss")
-
-        plt.show()
 
 
     def predict(self, x):
@@ -194,6 +176,19 @@ class Model(object):
         pred_test = self.predict(test_x)
         test_accu = np.mean( np.equal(np.argmax(test_y, 0), np.argmax(pred_test, 0)))
         print("test accuracy: {}".format(test_accu))
+
+    def plotLoss(self, x):
+
+        plt.plot(np.arange(x), self.plot[0], label = "train_loss")
+        plt.plot(np.arange(x), self.plot[1], label = "dev_loss")
+
+        plt.xlabel("epoch")
+        plt.ylabel("loss")
+
+        plt.legend()
+        plt.title("loss")
+
+        plt.show()
 
 
 
@@ -239,15 +234,15 @@ if __name__ == "__main__":
     (test_X, test_Y) = data[2]
 
 
-    model = Model(train_X, train_Y, batch_size = 32,drop = 0.3, norm = standard(), optimizer = Adam())
+    model = Model(X, Y, batch_size = 32, drop = 0.3, norm = standard(), optimizer = Adam())
     model.print_Info(True, 1)
-#    model.set_dev(dev_X, dev_Y)
+    #model.set_dev(dev_X, dev_Y)
     #ini = He(), acti = relu()
     model.add_layer(192, ini = He(), acti = relu())
     model.add_layer(96, ini = He(), acti = relu())
     model.add_layer(48, ini = He(), acti = relu())
-    model.add_last_layer()
+    model.add_last_layer(ini= He())
 
-    loss = model.fit(epoch = 50, learning_rate = 0.0005)
-    model.plotLoss(50)
+    loss = model.fit(epoch = 100, learning_rate = 0.0005)
+    model.plotLoss(100)
     model.test(test_X, test_Y)

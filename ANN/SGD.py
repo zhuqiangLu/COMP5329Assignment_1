@@ -49,20 +49,21 @@ class Batch(object):
         if(size == None):
             size = self.m
 
-
-        map_c = np.copy(self.map)
         self.shuffle()
         batch_num = self.m//size
-
+        shuff_X = self.getX()
+        shuff_Y = self.getY()
+        l_mini_X = None
+        l_mini_Y = None
 
         for i in range(batch_num):
 
             start = i * size
             end = start + size
-            shuff_X = self.getX()
-            shuff_Y = self.getY()
             mini_X = shuff_X[:, start:end]
             mini_Y = shuff_Y[:, start:end]
+
+
 
 
             mini_Y_hat = model.forward(mini_X, training = True)

@@ -1,9 +1,9 @@
 import numpy as np
 import Initializer as ini
 import BatchNormalizer as norm
-import Activation
-from Dropout import Dropout
-from Regularizer import L1, L2, dumbRegularizer
+from Activation import *
+from Dropout import *
+from Regularizer import *
 
 class HiddenLayer(object):
     '''
@@ -14,7 +14,7 @@ class HiddenLayer(object):
         self.Layer = Layer(n_in, n_out, ini)
         self.n_in = n_in
         self.n_out = n_out
-        self.activation = Activation.tanh()
+        self.activation = tanh()
         self.BatchNormalizer = None
         self.optimizer = None
         self.m = None
@@ -22,12 +22,12 @@ class HiddenLayer(object):
         self.z_norm = None
         self.a = None
         self.a_drop = None
-        self.dropout = None
+        self.drop = None
         self.input = None
         self.last_layer = last_layer
 
     def setDropout(self, drop):
-        self.dropout = Dropout(drop)
+        self.drop = Dropout(drop)
 
     def setActivation(self,activation):
         if(activation != None):
@@ -44,21 +44,14 @@ class HiddenLayer(object):
 
 
 
-    def forward(self,input, training = True, regularizer = None):
+    def forward(self, input, training = True, regularizer = None):
         self.m = input.shape[1]
-
+        self.input = input
         assert(self.n_in == input.shape[0])
-
-        #let regularizer collect W
-        if(regularizer is not None and training):
-            regularizer.collectW(self.Layer.W)
 
         #-> input ->  z1 -> norm_z1 -> a1   ->  a1_drop ->
 
-
-        self.input = input
-
-
+        #-> FC -> Batch Norm -> Activation -> Drop out ->FC ..
         if(self.optimizer.__class__.__name__ == "Nesterov"):
             last_v_W = self.optimizer.get_last_v_W()
             last_v_b = self.optimizer.get_last_v_b()
@@ -66,51 +59,51 @@ class HiddenLayer(object):
             self.Layer.W -= gama*last_v_W
             self.Layer.b -= gama*last_v_b
 
-        self.z = self.Layer.forward(input)
+        if(not training):
+            regularizer = None
+
+        self.z = self.Layer.forward(input, regularizer)
+
         if(self.BatchNormalizer is not None):
-            self.z_norm = self.BatchNormalizer.forward(self.z, training = training)
+            self.z_norm = self.BatchNormalizer.forward(self.z, training)
         else:
             self.z_norm = self.z
-    
-        self.a = self.activation.activate(self.z_norm)
-        self.a_drop = self.dropout.drop_forward(self.a, training)
 
-        return self.a
+        self.a = self.activation.forward(self.z_norm)
+        self.a_drop = self.drop.forward(self.a, training)
+        return self.a_drop
 
-    def backward(self, da_drop):
+
+
+
+    def backward(self, da_drop, regularizer = None):
         #da means dj/da_drop here
         # <- dinput <- dz1 <- dz1_norm <- da1  <- da1_drop <-
 
         #first get da_dz of the activation function of this layer
         #if this is the last layer, dz is given, but not da, therefore we skip calculating da_dz
-        dz_norm = None
-        if(not self.last_layer):
-            da = self.dropout.drop_backward(da_drop)
-            da_dz = self.activation.derivative(self.a)
-            dz_norm = da * da_dz
+
+        dz = None
+        if(self.last_layer):
+            dz = da_drop
         else:
-            dz_norm = da_drop
+            da = self.drop.backward(da_drop)
+            if(self.activation is not None):
+                dz_norm = self.activation.backward(self.a, da)
+            else:
+                dz_norm = da
+            if(self.BatchNormalizer is not None):
+                dz = self.BatchNormalizer.backward(dz_norm)
+            else:
+                dz = dz_norm
 
-        dz = 0
-        #then backward the norm layer
-        if(self.BatchNormalizer is not None):
-            dz = self.BatchNormalizer.backward(dz_norm)
-        else:
-            dz = dz_norm
+        dinput = self.Layer.backward(dz, regularizer)
+        return dinput
 
-        #then update dw and db using dz, calculate dj/da_drop
-        din = self.Layer.backward(dz)
-        #then return dj_dz
-        return din
 
-    def update(self,lr, regularizer = None):
-
-        if(regularizer != None):
-            self.Layer.grad_W = regularizer.update_grad_W(self.Layer.grad_W,self.Layer.W, self.m)
+    def update(self,lr):
 
         if(self.optimizer != None):
-            #self.Layer.W = self.optimizer.update_W(lr, self.Layer.W, self.Layer.grad_W)
-            #self.Layer.b = self.optimizer.update_b(lr, self.Layer.b, self.Layer.grad_b)
             self.Layer.W = self.optimizer.update_W(lr, self.Layer.W, self.Layer.grad_W)
             self.Layer.b = self.optimizer.update_b(lr, self.Layer.b, self.Layer.grad_b)
         else:
@@ -152,7 +145,7 @@ class Layer(object):
         self.grad_W = np.zeros(self.W.shape)
         self.grad_b = np.zeros(self.b.shape)
 
-    def forward(self, input):
+    def forward(self, input, regularizer = None):
         """
         Forward propagation of a hidden layer
 
@@ -160,11 +153,13 @@ class Layer(object):
         :param input: the input matrtix
 
         """
+        if regularizer is not None:
+            regularizer.forward(self.W)
         self.input = input
         return np.dot(self.W,input) + self.b
 
 
-    def backward(self, dz):
+    def backward(self, dz, regularizer = None):
         '''
         :type delta: numpy.array
         :param delta: the derivative of W and b from the last layer, of dimension [d_prev, d_this_layer]
@@ -175,6 +170,8 @@ class Layer(object):
         #first calculate the dw for this layer,
         #dw = dj/dz * dz/dw <- the input of this layer
         self.grad_W = np.dot(dz, self.input.T)/m
+        if(regularizer is not None):
+            self.grad_W = regularizer.backward(self.grad_W, self.W, m)
 
         #db is the sum of row of delta
 

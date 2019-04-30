@@ -13,17 +13,17 @@ class Dropout(object):
         self.mask = None
 
 
-    def drop_forward(self, a, training):
+    def forward(self, a, training):
         #get the Bernoulli matrix
-        ## when I google how to get bernoulli in numpy, it says I can use bonimial
         #then scale it by the keep rate
-        self.mask = np.random.binomial(1 ,self.keep, a.shape)/self.keep
+        self.mask = (np.random.binomial(1 ,self.keep, a.shape)/self.keep)
         if(training):
             return a * self.mask
         else:
             return a
 
 
-    def drop_backward(self, da):
-
-        return (da * self.mask)
+    def backward(self, da_drop):
+        # a_drop = mask * a
+        #d_a_drop/d_a  =  mask
+        return (da_drop * self.mask)

@@ -13,14 +13,11 @@ class Momentum(object):
         return Momentum(self.gama)
 
     def update_W(self, lr, W, grad_W):
-        lr = 0.0005
         self.v_W = (self.gama * self.v_W) - (lr * grad_W)
         return W + self.v_W
 
     def update_b(self, lr, b, grad_b):
-        lr = 0.0005
         self.v_b =(self.gama * self.v_b) - (lr * grad_b)
-
         return b + self.v_b
 
 
@@ -63,7 +60,7 @@ class Nesterov(object):
 class AdaGrad(object):
 
     def __init__(self):
-        
+
         self.epsilon = 1e-6
         self.G_W = 0
         self.G_b = 0
@@ -159,9 +156,8 @@ class RMSProp(object):
 
 
 class Adam(object):
-    def __init__(self, beta1 = 0.9, beta2 = 0.999 ,bias_correction = False):
-
-        self.epsilon = 1e-8
+    def __init__(self, beta1 = 0.9, beta2 = 0.999 ,bias_correction = True):
+        self.epsilon = 1e-12
 
         self.beta1 = beta1
         self.beta2 = beta2
@@ -183,23 +179,27 @@ class Adam(object):
 
         if(self.bias_correction):
             self.t+=1
-        self.mW = self.beta1 * self.mW + (1 - self.beta1) * grad_W
-        self.vW = self.beta2 * self.vW + (1 - self.beta2) * np.square(grad_W)
+        self.mW = (self.beta1 * self.mW + (1 - self.beta1) * grad_W)
+        self.vW = (self.beta2 * self.vW + (1 - self.beta2) * np.square(grad_W))
         m_hat = self.mW
         v_hat = self.vW
+
         if(self.bias_correction):
             m_hat = self.mW/(1. - (self.beta1 ** self.t))
             v_hat = self.vW/(1. - (self.beta2 ** self.t))
 
-        return W - (lr* m_hat)/np.sqrt(v_hat + self.epsilon)
+        return W - lr * (m_hat/np.sqrt(v_hat + self.epsilon))
 
     def update_b(self, lr, b, grad_b):
-        self.vb = self.beta2 * self.vb + (1 - self.beta2) * np.square(grad_b)
-        self.mb = self.beta1 * self.mb + (1 - self.beta1) * grad_b
+
+
+        self.vb = (self.beta2 * self.vb + (1 - self.beta2) * np.square(grad_b))
+        self.mb = (self.beta1 * self.mb + (1 - self.beta1) * grad_b)
         m_hat = self.mb
         v_hat = self.vb
+
         if(self.bias_correction):
             m_hat = self.mb/(1. - (self.beta1 ** self.t))
             v_hat = self.vb/(1. - (self.beta2 ** self.t))
 
-        return b - (lr* m_hat)/np.sqrt(v_hat + self.epsilon)
+        return b - lr * (m_hat/np.sqrt(v_hat + self.epsilon))

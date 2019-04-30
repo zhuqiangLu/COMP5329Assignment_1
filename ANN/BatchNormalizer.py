@@ -27,6 +27,8 @@ class standard(object):
     def __init_param(self, din):
         self.gama = np.ones((din, 1))
         self.beta = np.zeros((din, 1))
+        self.avg_mean = np.zeros((din, 1))
+        self.avg_var = np.zeros((din, 1))
 
     def clone(self):
 
@@ -46,16 +48,11 @@ class standard(object):
             input_hat = (input - self.avg_mean)/np.sqrt(self.avg_var + epsilon)
             return (self.gama * input_hat) + self.beta
 
-
-
-        m = input.shape[1]
         self.input = input
         #calculate the mean of each features
         self.mean = np.mean(input, axis = 1, keepdims = True)
-
         #variance
-        self.var = np.var(self.input, axis = 1, keepdims = True)
-
+        self.var = np.var(input, axis = 1, keepdims = True)
         #standard deviation
         self.std = np.sqrt(self.var + epsilon)
         #normalize
@@ -76,12 +73,13 @@ class standard(object):
         #dgama = din_norm * input_hat
         #din_norm is (n_feature, m), input_hat is (n_feature, m)
         #where gama is (n_feature, 1), sum the product along axis 1
-        self.dgama = np.sum(din_norm * self.input_hat, axis = 1, keepdims = True)
+        self.dgama = np.sum(din_norm * self.input_hat, axis = 1, keepdims = True)/m
         #the same applied to dbeta
-        self.dbeta = np.sum(din_norm, axis = 1, keepdims = True)
+        self.dbeta = np.sum(din_norm, axis = 1, keepdims = True)/m
 
         #now comput din_norm/din
 
+        #the following derivative can be found in paper,
         dvar = np.sum(din_hat * (self.input - self.mean) , axis = 1, keepdims = True ) * ((self.std**-3)/-2)
 
         dmean = np.sum(din_hat * (-1/self.std), axis = 1, keepdims = True) + dvar * np.sum(-2*(self.input - self.mean), axis = 1, keepdims = True)/m
@@ -92,10 +90,8 @@ class standard(object):
 
     def update(self, lr):
         if(self.optimizer is None):
-            self.gama -= lr * self.dgama
-            self.beta -= lr * self.dbeta
+            self.gama = self.gama -  lr * self.dgama
+            self.beta = self.beta -  lr * self.dbeta
         else:
-            # self.gama = self.optimizer.update_W(lr, self.gama, self.dgama)
-            # self.beta = self.optimizer.update_b(lr, self.beta, self.dbeta)
             self.gama = self.optimizer.update_W(lr, self.gama, self.dgama)
             self.beta = self.optimizer.update_b(lr, self.beta, self.dbeta)
