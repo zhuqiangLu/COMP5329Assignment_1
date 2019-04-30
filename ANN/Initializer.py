@@ -29,15 +29,3 @@ class Xavier(object):
 
     def get_b(self, n_out):
         return np.zeros((n_out, 1))
-
-class dumbInitializer(object):
-    def get_W(self, n_in, n_out):
-        W = np.random.uniform(
-                low = -1,
-                high = 1,
-                size = (n_out, n_in)
-        )
-        return  W
-
-    def get_b(self, n_out):
-        return np.zeros((n_out, 1))

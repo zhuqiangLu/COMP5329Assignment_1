@@ -138,6 +138,9 @@ class RMSProp(object):
         self.decay = decay
         self.t = 0
 
+    def clone(self):
+        return RMSProp(self.decay)
+
 
     def update_W(self, lr, W, grad_W):
 

@@ -4,13 +4,13 @@ from Layer import HiddenLayer
 from Initializer import Xavier, He
 from Cost import Cross_Entropy
 from Dropout import Dropout
-from Optimizer import Momentum, Nesterov, AdaGrad, AdaDelta, Adam
+from Optimizer import Momentum, Nesterov, AdaGrad, AdaDelta, RMSProp, Adam
 from Regularizer import L1, L2
 from SGD import Batch
+import time
 
 
 import numpy as np
-import h5py
 import matplotlib.pyplot as plt
 
 
@@ -28,37 +28,50 @@ class Model(object):
                 cost = Cross_Entropy(),
                 regularizer = None):
 
+        #create batches
         self.batch = Batch(training_data, training_label)
-        self.X = training_data
-        self.Y = training_label
         self.batch_size = batch_size
+
+        #place holder for general info
         self.m = training_data.shape[1]
-        self.dev_X = None
-        self.dev_Y = None
+        self.cv_X = None
+        self.cv_Y = None
         self.classes = training_label.shape[0]
         self.dims = [training_data.shape[0]]
         self.lr = learning_rate
-        self.layers = []
-        self.drop = drop
-        self.optimizer = optimizer
-        self.norm = norm
+        self.epoch = 100
 
+        #place holder for layers
+        self.layers = []
+
+        #optimizer
+        self.optimizer = optimizer
+
+        #regularizer
+        self.drop = drop
+        self.norm = norm
+        self.regularizer = regularizer
+
+        #set optimizer to the Batch Normalizer
         if(self.optimizer is not None and self.norm is not None):
             self.norm.set_optimizer(self.optimizer.clone())
 
+        #cost function
         self.cost = cost
-        self.regularizer = regularizer
+
+        #plot infos
         self.printInfo = False
         self.printAt = 1
-        self.plot = []
+        self.Loss_plot = []
+        self.Accu_plot = []
 
-    def add_layer(self,
-                n_out,
-                ini = Xavier(),
-                acti = relu(),
-                drop = None):
 
+
+    def add_layer(self, n_out, ini = Xavier(), acti = relu(), drop = None):
+
+        #override the universal drop
         drop = self.drop
+
         n_in = self.dims[-1]
         layer = HiddenLayer(n_in, n_out, ini)
         layer.setActivation(acti)
@@ -82,6 +95,7 @@ class Model(object):
         n_in = self.dims[-1]
         n_out = self.classes
         layer = HiddenLayer(n_in, n_out, ini, last_layer = True)
+        #The activation function is softmax for the last layer
         layer.setActivation(softmax())
 
         #last layer dose not need Dropout
@@ -91,9 +105,10 @@ class Model(object):
 
         self.layers.append(layer)
 
-    def set_dev(self, dev_X, dev_Y):
-        self.dev_X = dev_X
-        self.dev_Y = dev_Y
+    def cross_validate(self, cv_X, cv_Y):
+        #set cross validation data
+        self.cv_X = cv_X
+        self.cv_Y = cv_Y
 
     def get_reg_loss(self):
         if(self.regularizer is None):
@@ -127,122 +142,117 @@ class Model(object):
         for layer in self.layers:
             layer.update(self.lr)
 
-
-
     def fit(self, epoch = 100, learning_rate = None):
+        self.epoch = epoch
+
         #update learning rate if it is given in fit
         if(learning_rate is not None):
             self.lr = learning_rate
 
-        loss_train = []
-        loss_dev = []
-        #first get batch
-        for i in range(epoch):
+        #place holder for info to plot
+        total_loss_train = []
+        total_loss_cv = []
+        total_accu_train = []
+        total_accu_cv = []
 
+        start = time.time()
+
+        for i in range(epoch):
+            #go through all mini_batches
             self.batch.fit(self, size = self.batch_size)
 
-            dev_loss = 0
-            dev_accu = 0
-            if(self.printInfo):
-
-                if(self.dev_X is not None and self.dev_Y is not None):
-                    dev_X_copy = np.copy(dev_X)
-                    pred_dev = self.predict(self.dev_X)
-                    dev_accu = np.mean( np.equal(np.argmax(self.dev_Y, 0), np.argmax(pred_dev, 0)))
-                    dev_loss = self.cost.loss(dev_Y, pred_dev)
-                    loss_dev.append(dev_loss)
-
-                mean_loss_train = np.mean(self.batch.getLoss())
-                loss_train.append(mean_loss_train)
+            #get mean loss of all batch losses
+            mean_loss_train = np.mean(self.batch.getLoss())
+            mean_accu_train = np.mean(self.batch.getAccuracy())
+            total_loss_train.append(mean_loss_train)
+            total_accu_train.append(mean_accu_train)
 
 
-                mean_accu_train = np.mean(self.batch.getAccuracy())
-                print("epoch {}, train loss {}, train accur {}, val loss: {}, val accu: {}".format(i, mean_loss_train, mean_accu_train, dev_loss, dev_accu))
+            #if we have cross validation set, we log the plot info
+            if(self.cv_X is not None and self.cv_Y is not None):
 
-            self.plot.append(loss_train)
+                pred_cv = self.predict(self.cv_X)
+                cv_loss = self.cost.loss(self.cv_Y, pred_cv)
+                cv_accu = np.mean( np.equal(np.argmax(self.cv_Y, 0), np.argmax(pred_cv, 0)))
 
-            self.plot.append(loss_dev)
+                total_loss_cv.append(cv_loss)
+                total_accu_cv.append(cv_accu)
 
 
+            self.Loss_plot.append(total_loss_train)
+            self.Loss_plot.append(total_loss_cv)
+            self.Accu_plot.append(total_accu_train)
+            self.Accu_plot.append(total_accu_cv)
 
+            if(self.printInfo and i%self.printAt == 0):
+                print("epoch {}, train loss {:.5f}, train accur {:.3%}, val loss: {:.5f}, val accu: {:.3%}".format(i+1, mean_loss_train, mean_accu_train, cv_loss, cv_accu))
 
-    def predict(self, x):
+        end = time.time()
+        if(self.printInfo):
+            s = end - start
+            print("Total training time {:.3f} s".format(s))
+
+    def predict(self, x, save_path = None):
+
         x = np.array(x)
         for layer in self.layers:
             x = layer.forward(x, training = False)#regularizer collect W during forward
+
+        if(save_path is not None):
+            save_path += "predict_result.h5"
+            f = h5py.File(save_path,'a')
+            f.create_dataset('predict_label',data = x, dtype = np.float32)
+            f.close()
+
         return x
+
 
     def test(self, test_x, test_y):
         pred_test = self.predict(test_x)
         test_accu = np.mean( np.equal(np.argmax(test_y, 0), np.argmax(pred_test, 0)))
-        print("test accuracy: {}".format(test_accu))
-
-    def plotLoss(self, x):
-
-        plt.plot(np.arange(x), self.plot[0], label = "train_loss")
-        plt.plot(np.arange(x), self.plot[1], label = "dev_loss")
-
-        plt.xlabel("epoch")
-        plt.ylabel("loss")
-
-        plt.legend()
-        plt.title("loss")
-
-        plt.show()
+        print("Test accuracy: {:.2%}".format(test_accu))
 
 
 
+    def plot(self, accu = True, loss = True):
+        if(accu or loss):
+
+            #get x axis
+            x = np.arange(self.epoch+1)
+            #exclude epoch 0
+            x = x[1:]
+
+            #get subplot number
+            subplot_number = 1
+            i = 1
+            if(accu and loss):
+                subplot_number += 1
+
+            #create figure
+            plt.figure(1)
+
+            if(accu):
+                plt.subplot(subplot_number, 1, i)
+                plt.plot(x, self.Accu_plot[0], label = "train_accu")
+                plt.plot(x, self.Accu_plot[1], label = "cv_accu")
+
+                plt.xlabel("epoch")
+                plt.ylabel("accu")
+
+                plt.legend()
+
+                i+=1
 
 
-def load_data():
 
-    with h5py.File('Assignment-1-Dataset/train_128.h5','r') as H:
-        data = np.copy(H['data'])
-    with h5py.File('Assignment-1-Dataset/train_label.h5','r') as H:
-        label = np.copy(H['label'])
-    with h5py.File('Assignment-1-Dataset/test_128.h5','r') as H:
-        test = np.copy(H['data'])
-    return data,label,test
+            if(loss):
+                plt.subplot(subplot_number, 1, i)
+                plt.plot(x, self.Loss_plot[0], label = "train_loss")
+                plt.plot(x, self.Loss_plot[1], label = "cv_loss")
 
-def train_dev_test(X, Y, train_rate, dev_rate, test_rate):
-    m = X.shape[1]
-    train = round(m*train_rate)
-    dev = train + round(m*dev_rate)
-    test = dev + round(m*test_rate)
-    return [(X[:,:train], Y[:,:train]),(X[:,train:dev], Y[:, train:dev]),(X[:, dev:], Y[:, dev:])]
+                plt.xlabel("epoch")
+                plt.ylabel("loss")
 
+                plt.legend()
 
-def standardize_data(X):
-    mean = np.mean(X, axis = 1, keepdims = True)
-    var = np.var(X, axis = 1, keepdims = True)
-    return (X-mean)/np.sqrt(var + 1e-8)
-
-def onehot(label):
-    return np.eye(np.max(label)+1)[label]
-
-if __name__ == "__main__":
-    X, label, toPredict= load_data() # X is(m, n_in)
-    label = onehot(label)
-
-    X = standardize_data(X.T)
-    Y = label.T
-    toPredict = standardize_data(toPredict.T)
-
-    data = train_dev_test(X, Y, 0.8, 0.1, 0.1)
-    (train_X, train_Y) = data[0]
-    (dev_X, dev_Y) = data[1]
-    (test_X, test_Y) = data[2]
-
-
-    model = Model(X, Y, batch_size = 32, drop = 0.3, norm = standard(), optimizer = Adam())
-    model.print_Info(True, 1)
-    #model.set_dev(dev_X, dev_Y)
-    #ini = He(), acti = relu()
-    model.add_layer(192, ini = He(), acti = relu())
-    model.add_layer(96, ini = He(), acti = relu())
-    model.add_layer(48, ini = He(), acti = relu())
-    model.add_last_layer(ini= He())
-
-    loss = model.fit(epoch = 100, learning_rate = 0.0005)
-    model.plotLoss(100)
-    model.test(test_X, test_Y)
+            plt.show()

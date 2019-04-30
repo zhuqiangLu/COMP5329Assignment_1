@@ -11,7 +11,7 @@ class HiddenLayer(object):
         This object also control forward and backward propagation
     '''
     def __init__(self, n_in, n_out, ini, last_layer = False):
-        self.Layer = Layer(n_in, n_out, ini)
+        self.FC = FullyConnected(n_in, n_out, ini)
         self.n_in = n_in
         self.n_out = n_out
         self.activation = tanh()
@@ -56,13 +56,13 @@ class HiddenLayer(object):
             last_v_W = self.optimizer.get_last_v_W()
             last_v_b = self.optimizer.get_last_v_b()
             gama = self.optimizer.gama
-            self.Layer.W -= gama*last_v_W
-            self.Layer.b -= gama*last_v_b
+            self.FC.W -= gama*last_v_W
+            self.FC.b -= gama*last_v_b
 
         if(not training):
             regularizer = None
 
-        self.z = self.Layer.forward(input, regularizer)
+        self.z = self.FC.forward(input, regularizer)
 
         if(self.BatchNormalizer is not None):
             self.z_norm = self.BatchNormalizer.forward(self.z, training)
@@ -97,18 +97,18 @@ class HiddenLayer(object):
             else:
                 dz = dz_norm
 
-        dinput = self.Layer.backward(dz, regularizer)
+        dinput = self.FC.backward(dz, regularizer)
         return dinput
 
 
     def update(self,lr):
 
         if(self.optimizer != None):
-            self.Layer.W = self.optimizer.update_W(lr, self.Layer.W, self.Layer.grad_W)
-            self.Layer.b = self.optimizer.update_b(lr, self.Layer.b, self.Layer.grad_b)
+            self.FC.W = self.optimizer.update_W(lr, self.FC.W, self.FC.grad_W)
+            self.FC.b = self.optimizer.update_b(lr, self.FC.b, self.FC.grad_b)
         else:
-            self.Layer.W = self.Layer.W - lr * self.Layer.grad_W
-            self.Layer.b = self.Layer.b - lr * self.Layer.grad_b
+            self.FC.W = self.FC.W - lr * self.FC.grad_W
+            self.FC.b = self.FC.b - lr * self.FC.grad_b
 
         #update normalizer as well
         if(self.BatchNormalizer is not None):
@@ -116,26 +116,11 @@ class HiddenLayer(object):
 
 
 
-class Layer(object):
-    '''
-    a layer without activation fuction, optimization
-    '''
+class FullyConnected(object):
+
 
     def __init__(self, n_in, n_out, ini):
-        """
-        Hidden unit activation is given by: tanh(dot(W,X) + b)
 
-        :type n_in: int
-        :param n_in: dim of input
-
-        :type n_out: int
-        :param n_out: number of hidden units
-
-        :type ini: Initializer object
-        :param ini: initialization method of W
-
-
-        """
         self.input = None
         #init W and b using the given initializer
         self.W = ini.get_W(n_in, n_out)
@@ -146,13 +131,7 @@ class Layer(object):
         self.grad_b = np.zeros(self.b.shape)
 
     def forward(self, input, regularizer = None):
-        """
-        Forward propagation of a hidden layer
 
-        :type input: matrix that of the shape (n_in, n_example)
-        :param input: the input matrtix
-
-        """
         if regularizer is not None:
             regularizer.forward(self.W)
         self.input = input
@@ -160,10 +139,7 @@ class Layer(object):
 
 
     def backward(self, dz, regularizer = None):
-        '''
-        :type delta: numpy.array
-        :param delta: the derivative of W and b from the last layer, of dimension [d_prev, d_this_layer]
-        '''
+
 
         m = self.input.shape[1]
 

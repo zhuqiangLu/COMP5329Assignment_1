@@ -34,21 +34,4 @@ class softmax(object):
 
     def forward(self, z):
         #first calculate the base(the sum of exp(x_i)) for each row
-
         return np.exp(z)/np.sum(np.exp(z), axis = 0, keepdims = True)
-
-    def backward(self,a):
-        #not recommanded to use
-        m = a.shape[1]
-        f = a.shape[0]
-        #first, create spaceholder for the matrix, the dy/dz matrix will be (y,y,n)
-        deri = np.zeros((f,f,m))
-
-        #then create the mask for Kronecker delta
-        K = np.eye(f)
-
-        for n in range(m):
-            y_hat = a[:,n]
-            deri[:,:,n] = (K - y_hat)*y_hat.reshape(f,1)
-
-        return deri

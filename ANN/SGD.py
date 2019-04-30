@@ -43,27 +43,28 @@ class Batch(object):
 
 
     def fit(self, model, size = None):
-
+        #reset loss and accuracy
         self.reset()
 
+        #if batch size is not given then use one batch per epoch
         if(size == None):
             size = self.m
 
+        #shuffle
         self.shuffle()
+
+        #get the number of batch, X  and Y
         batch_num = self.m//size
         shuff_X = self.getX()
         shuff_Y = self.getY()
-        l_mini_X = None
-        l_mini_Y = None
 
         for i in range(batch_num):
+
 
             start = i * size
             end = start + size
             mini_X = shuff_X[:, start:end]
             mini_Y = shuff_Y[:, start:end]
-
-
 
 
             mini_Y_hat = model.forward(mini_X, training = True)

@@ -1,9 +1,10 @@
 import numpy as np
 from Optimizer import *
+
+
 class standard(object):
     def __init__(self, avg_decay = 0.9, optimizer = None):
         self.m = None
-
         self.gama = None
         self.beta = None
         self.dgama = 0
@@ -15,7 +16,6 @@ class standard(object):
         self.std = None
         self.avg_decay = avg_decay
         self.optimizer = optimizer
-
         self.avg_mean = 0
         self.avg_var = 0
 

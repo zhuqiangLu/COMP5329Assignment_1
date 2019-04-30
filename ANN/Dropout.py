@@ -9,7 +9,6 @@ class Dropout(object):
 
         self.drop = drop
         self.keep = (1-drop)
-        print(self.drop)
         self.mask = None
 
 
