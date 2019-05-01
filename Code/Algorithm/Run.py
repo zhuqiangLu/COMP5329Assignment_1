@@ -57,7 +57,8 @@ def get_opt():
 
 def train_and_predict():
 
-    X, Y, test= DataPreprocessor.get_preprocessed_data(config.Data_Path)
+    X, Y, toPredict= DataPreprocessor.get_preprocessed_data(config.Data_Path)
+
     data = DataPreprocessor.train_cv_test_split(X, Y, config.Training_Rate, config.Cross_Validate_Rate, config.Test_Rate)
     (train_X, train_Y, cv_X, cv_Y, test_X, test_Y) = data
     model = Model(train_X, train_Y, batch_size = get_batch_size() , drop = get_drop(), regularizer = get_regularizer(), norm = get_norm(), optimizer = get_opt())
@@ -70,9 +71,10 @@ def train_and_predict():
     model.fit(epoch = config.Epoch, learning_rate = config.Learning_Rate)
     model.test(test_X, test_Y)
     model.plot(config.Plot_Loss, config.Plot_Accuracy)
-    predict = model.predict(X).T
 
-    f = h5py.File(config.Save_To + "/predicted_label.h5",'a')
+    predict = model.predict(toPredict).T
+    predict = np.argmax(predict, axis = 1)
+    f = h5py.File(config.Save_To + "/Predicted_labels.h5",'a')
     f.create_dataset('/predicted_label',data = predict, dtype = np.float32)
     f.close()
 

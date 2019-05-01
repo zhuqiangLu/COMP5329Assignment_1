@@ -13,7 +13,7 @@ Save_To = "../Assignment-1-Output"
 
 #Hyperparameters
 Learning_Rate = 0.0005          #please be greater than 0
-Epoch = 50                       #please be greater than 0
+Epoch = 50                      #please be greater than 0
 Batch_Size = 32                 #please be greater than 0
 Dropout_Rate = 0.3              #please be 0 to 1 (inclusive)
 Weight_Decay = 0                #please be 0 to 1 (inclusive)
