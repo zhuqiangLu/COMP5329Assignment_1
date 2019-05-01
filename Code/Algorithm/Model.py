@@ -8,6 +8,7 @@ from Optimizer import Momentum, Nesterov, AdaGrad, AdaDelta, RMSProp, Adam
 from Regularizer import L1, L2
 from SGD import Batch
 import time
+import h5py
 
 
 import numpy as np
@@ -143,6 +144,7 @@ class Model(object):
             layer.update(self.lr)
 
     def fit(self, epoch = 100, learning_rate = None):
+        print("<==============Start training================>")
         self.epoch = epoch
 
         #update learning rate if it is given in fit
@@ -169,6 +171,8 @@ class Model(object):
 
 
             #if we have cross validation set, we log the plot info
+            cv_loss = 0
+            cv_accu = 0
             if(self.cv_X is not None and self.cv_Y is not None):
 
                 pred_cv = self.predict(self.cv_X)
@@ -177,6 +181,8 @@ class Model(object):
 
                 total_loss_cv.append(cv_loss)
                 total_accu_cv.append(cv_accu)
+
+
 
 
             self.Loss_plot.append(total_loss_train)
@@ -192,22 +198,16 @@ class Model(object):
             s = end - start
             print("Total training time {:.3f} s".format(s))
 
-    def predict(self, x, save_path = None):
-
+    def predict(self, x):
         x = np.array(x)
         for layer in self.layers:
             x = layer.forward(x, training = False)#regularizer collect W during forward
-
-        if(save_path is not None):
-            save_path += "predict_result.h5"
-            f = h5py.File(save_path,'a')
-            f.create_dataset('predict_label',data = x, dtype = np.float32)
-            f.close()
-
         return x
 
 
     def test(self, test_x, test_y):
+        if(test_x is None):
+            return
         pred_test = self.predict(test_x)
         test_accu = np.mean( np.equal(np.argmax(test_y, 0), np.argmax(pred_test, 0)))
         print("Test accuracy: {:.2%}".format(test_accu))
@@ -234,7 +234,8 @@ class Model(object):
             if(accu):
                 plt.subplot(subplot_number, 1, i)
                 plt.plot(x, self.Accu_plot[0], label = "train_accu")
-                plt.plot(x, self.Accu_plot[1], label = "cv_accu")
+                if(self.cv_X is not  None):
+                    plt.plot(x, self.Accu_plot[1], label = "cv_accu")
 
                 plt.xlabel("epoch")
                 plt.ylabel("accu")
@@ -248,7 +249,8 @@ class Model(object):
             if(loss):
                 plt.subplot(subplot_number, 1, i)
                 plt.plot(x, self.Loss_plot[0], label = "train_loss")
-                plt.plot(x, self.Loss_plot[1], label = "cv_loss")
+                if(self.cv_X is not  None):
+                    plt.plot(x, self.Loss_plot[1], label = "cv_loss")
 
                 plt.xlabel("epoch")
                 plt.ylabel("loss")
